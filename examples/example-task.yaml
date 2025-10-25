@@ -1,0 +1,8 @@
+# Example task definition
+name: example-task
+description: An example task demonstrating the task format
+steps:
+  - name: step1
+    action: log
+    params:
+      message: "This is an example task"
