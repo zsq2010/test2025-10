@@ -73,7 +73,20 @@ cd imagesplit/example
 go run .
 ```
 
-示例将按照网格和固定尺寸两种方式分割 `imagesplit/testdata/gradient.png` 图片，并把结果输出到 `imagesplit/example/output` 目录。
+示例会自动生成一张示例 PNG 图片，并在 `imagesplit/example/output` 目录下演示网格分割与固定尺寸分割，同时给出 JPEG 输出示例。
+
+## 测试图片
+
+项目提供 `imagesplit/testdata` 辅助包，可动态生成内置的测试图片：
+
+```go
+import testdata "github.com/cto-new/imagesplit/imagesplit/testdata"
+
+data, _ := testdata.GradientPNG()    // 获取示例 PNG 图片字节流
+testdata.WriteBlocksJPEG("blocks.jpg") // 生成示例 JPEG 文件
+```
+
+这些工具可用于测试、示例或文档代码中，避免手动维护二进制测试资源。
 
 ## 测试
 

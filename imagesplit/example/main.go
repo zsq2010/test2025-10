@@ -3,14 +3,23 @@ package main
 import (
     "fmt"
     "log"
+    "os"
     "path/filepath"
 
     "github.com/cto-new/imagesplit/imagesplit"
+    testdata "github.com/cto-new/imagesplit/imagesplit/testdata"
 )
 
 func main() {
-    inputImage := filepath.Join("..", "testdata", "gradient.png")
     outputDir := filepath.Join("output")
+    if err := os.MkdirAll(outputDir, 0o755); err != nil {
+        log.Fatalf("create output directory: %v", err)
+    }
+
+    inputImage := filepath.Join(outputDir, "sample_input.png")
+    if err := testdata.WriteGradientPNG(inputImage); err != nil {
+        log.Fatalf("prepare input image: %v", err)
+    }
 
     gridFiles, err := imagesplit.GridSplit(inputImage, 2, 3, imagesplit.SplitOptions{
         OutputDir:  outputDir,

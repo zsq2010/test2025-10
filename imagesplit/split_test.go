@@ -1,66 +1,35 @@
 package imagesplit
 
 import (
-    "errors"
-    "image"
-    "image/color"
     "image/jpeg"
     "image/png"
     "os"
     "path/filepath"
     "strings"
     "testing"
+
+    testdata "github.com/cto-new/imagesplit/imagesplit/testdata"
 )
 
-func ensureTestImages(t *testing.T) (string, string) {
+func createSampleImages(t *testing.T) (string, string) {
     t.Helper()
-    pngPath := filepath.Join("testdata", "gradient.png")
-    if _, err := os.Stat(pngPath); err != nil {
-        t.Fatalf("expected test image %s: %v", pngPath, err)
+    dir := t.TempDir()
+
+    pngPath := filepath.Join(dir, "gradient.png")
+    if err := testdata.WriteGradientPNG(pngPath); err != nil {
+        t.Fatalf("write gradient png: %v", err)
     }
 
-    jpegPath := filepath.Join("testdata", "blocks.jpg")
-    if _, err := os.Stat(jpegPath); errors.Is(err, os.ErrNotExist) {
-        createBlocksJPEG(t, jpegPath)
-    } else if err != nil {
-        t.Fatalf("stat jpeg: %v", err)
+    jpegPath := filepath.Join(dir, "blocks.jpg")
+    if err := testdata.WriteBlocksJPEG(jpegPath); err != nil {
+        t.Fatalf("write blocks jpeg: %v", err)
     }
 
     return pngPath, jpegPath
 }
 
-func createBlocksJPEG(t *testing.T, path string) {
-    t.Helper()
-    if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-        t.Fatalf("mkdir testdata: %v", err)
-    }
-
-    img := image.NewRGBA(image.Rect(0, 0, 12, 8))
-    for y := 0; y < 8; y++ {
-        for x := 0; x < 12; x++ {
-            r := uint8(float64(x) / 11.0 * 255)
-            g := uint8(float64(y) / 7.0 * 255)
-            img.Set(x, y, color.RGBA{R: r, G: g, B: 180, A: 255})
-        }
-    }
-
-    file, err := os.Create(path)
-    if err != nil {
-        t.Fatalf("create jpeg: %v", err)
-    }
-    defer file.Close()
-
-    if err := jpeg.Encode(file, img, &jpeg.Options{Quality: 85}); err != nil {
-        t.Fatalf("encode jpeg: %v", err)
-    }
-
-    t.Cleanup(func() {
-        _ = os.Remove(path)
-    })
-}
-
 func TestGridSplitPNG(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
+    pngPath, _ := createSampleImages(t)
     outDir := t.TempDir()
 
     files, err := GridSplit(pngPath, 3, 4, SplitOptions{OutputDir: outDir})
@@ -73,6 +42,7 @@ func TestGridSplitPNG(t *testing.T) {
 
     expectedHeights := []int{4, 3, 3}
     expectedWidths := []int{3, 3, 2, 2}
+    cols := 4
 
     for i, path := range files {
         if _, err := os.Stat(path); err != nil {
@@ -89,8 +59,8 @@ func TestGridSplitPNG(t *testing.T) {
             t.Fatalf("decode tile png: %v", err)
         }
         bounds := img.Bounds()
-        row := i / 4
-        col := i % 4
+        row := i / cols
+        col := i % cols
         if bounds.Dx() != expectedWidths[col] || bounds.Dy() != expectedHeights[row] {
             t.Errorf("unexpected tile size for row %d col %d: got %dx%d", row, col, bounds.Dx(), bounds.Dy())
         }
@@ -98,7 +68,7 @@ func TestGridSplitPNG(t *testing.T) {
 }
 
 func TestGridSplitJPEGInput(t *testing.T) {
-    _, jpegPath := ensureTestImages(t)
+    _, jpegPath := createSampleImages(t)
     outDir := t.TempDir()
 
     files, err := GridSplit(jpegPath, 2, 3, SplitOptions{OutputDir: outDir})
@@ -125,7 +95,7 @@ func TestGridSplitJPEGInput(t *testing.T) {
 }
 
 func TestTileSplitRemainders(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
+    pngPath, _ := createSampleImages(t)
     outDir := t.TempDir()
 
     files, err := TileSplit(pngPath, 4, 3, SplitOptions{OutputDir: outDir, FilePrefix: "tiles"})
@@ -159,7 +129,7 @@ func TestTileSplitRemainders(t *testing.T) {
 }
 
 func TestTileSplitJPEGOutput(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
+    pngPath, _ := createSampleImages(t)
     outDir := t.TempDir()
 
     files, err := TileSplit(pngPath, 6, 5, SplitOptions{OutputDir: outDir, Format: "jpeg", Quality: 75})
@@ -186,27 +156,25 @@ func TestTileSplitJPEGOutput(t *testing.T) {
 }
 
 func TestGridSplitInvalidParameters(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
-    if _, err := GridSplit(pngPath, 0, 2, SplitOptions{}); err == nil {
+    if _, err := GridSplit("ignored.png", 0, 2, SplitOptions{}); err == nil {
         t.Fatalf("expected error for zero rows")
     }
-    if _, err := GridSplit(pngPath, 2, -1, SplitOptions{}); err == nil {
+    if _, err := GridSplit("ignored.png", 2, -1, SplitOptions{}); err == nil {
         t.Fatalf("expected error for negative cols")
     }
 }
 
 func TestTileSplitInvalidParameters(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
-    if _, err := TileSplit(pngPath, 0, 5, SplitOptions{}); err == nil {
+    if _, err := TileSplit("ignored.png", 0, 5, SplitOptions{}); err == nil {
         t.Fatalf("expected error for zero width")
     }
-    if _, err := TileSplit(pngPath, 5, 0, SplitOptions{}); err == nil {
+    if _, err := TileSplit("ignored.png", 5, 0, SplitOptions{}); err == nil {
         t.Fatalf("expected error for zero height")
     }
 }
 
 func TestUnsupportedOutputFormat(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
+    pngPath, _ := createSampleImages(t)
     _, err := GridSplit(pngPath, 2, 2, SplitOptions{Format: "gif"})
     if err == nil {
         t.Fatalf("expected error for unsupported output format")
@@ -225,7 +193,7 @@ func TestUnsupportedInputFormat(t *testing.T) {
 }
 
 func TestOutputDirectoryCreated(t *testing.T) {
-    pngPath, _ := ensureTestImages(t)
+    pngPath, _ := createSampleImages(t)
     base := t.TempDir()
     outDir := filepath.Join(base, "nested", "dir")
 
