@@ -1,0 +1,12 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+
+logging:
+  level: info
+  format: json
+
+base_paths:
+  tasks_dir: ./tasks
+  web_dir: ./web
+  examples_dir: ./examples
