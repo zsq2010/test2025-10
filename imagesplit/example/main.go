@@ -46,4 +46,33 @@ func main() {
     for _, path := range tileFiles {
         fmt.Println(" -", path)
     }
+
+    batchInput := filepath.Join(outputDir, "batch_input")
+    if err := os.MkdirAll(batchInput, 0o755); err != nil {
+        log.Fatalf("create batch input directory: %v", err)
+    }
+    if err := testdata.WriteGradientPNG(filepath.Join(batchInput, "gradient.png")); err != nil {
+        log.Fatalf("write gradient sample: %v", err)
+    }
+    if err := testdata.WriteBlocksJPEG(filepath.Join(batchInput, "blocks.jpg")); err != nil {
+        log.Fatalf("write blocks sample: %v", err)
+    }
+
+    batchOutput := filepath.Join(outputDir, "batch")
+    batchResults, err := imagesplit.SplitDirectory(batchInput, batchOutput, imagesplit.DirectorySplitConfig{
+        Mode: imagesplit.DirectorySplitModeGrid,
+        Rows: 2,
+        Cols: 2,
+    })
+    if err != nil {
+        log.Fatalf("batch split failed: %v", err)
+    }
+
+    fmt.Println("\nDirectory split results:")
+    for src, generated := range batchResults {
+        fmt.Println("Source:", src)
+        for _, path := range generated {
+            fmt.Println("  -", path)
+        }
+    }
 }

@@ -18,6 +18,8 @@ go get github.com/cto-new/imagesplit
 
 ## 快速上手
 
+### 单张图片分割
+
 ```go
 package main
 
@@ -40,6 +42,27 @@ func main() {
 }
 ```
 
+### 批量处理目录
+
+```go
+cfg := imagesplit.DirectorySplitConfig{
+    Mode: imagesplit.DirectorySplitModeGrid,
+    Rows: 3,
+    Cols: 3,
+    Options: imagesplit.SplitOptions{Format: "png"},
+}
+results, err := imagesplit.SplitDirectory("input-dir", "output-dir", cfg)
+if err != nil {
+    log.Fatal(err)
+}
+for src, generated := range results {
+    fmt.Println("source:", src)
+    for _, path := range generated {
+        fmt.Println("  -", path)
+    }
+}
+```
+
 ## API 文档
 
 ```go
@@ -59,6 +82,16 @@ func TileSplit(inputPath string, tileWidth, tileHeight int, opts imagesplit.Spli
 - `tileWidth` / `tileHeight`: 图块宽高，必须大于 0。
 - 其余参数与 `GridSplit` 一致。
 
+```go
+func SplitDirectory(inputDir, outputDir string, cfg imagesplit.DirectorySplitConfig) (map[string][]string, error)
+```
+- `inputDir`: 输入图片所在目录。
+- `outputDir`: 输出根目录，每张图片会在该目录下创建一个以图片名命名的子目录。
+- `cfg.Mode`: 分割模式（`imagesplit.DirectorySplitModeGrid` / `imagesplit.DirectorySplitModeTile`）。
+- `cfg.Rows`, `cfg.Cols`: 网格模式的行列数。
+- `cfg.TileWidth`, `cfg.TileHeight`: 固定尺寸模式的宽高。
+- `cfg.Options`: 其它分割选项（输出格式、JPEG 质量等），`OutputDir` 会被自动覆盖为图片专属子目录。
+
 ## 命名规则
 
 - 网格分割：`{prefix}_row{i}_col{j}.{ext}` → 例如：`image_row0_col2.png`
@@ -73,7 +106,7 @@ cd imagesplit/example
 go run .
 ```
 
-示例会自动生成一张示例 PNG 图片，并在 `imagesplit/example/output` 目录下演示网格分割与固定尺寸分割，同时给出 JPEG 输出示例。
+示例会自动生成一张示例 PNG 图片，并在 `imagesplit/example/output` 目录下演示网格分割、固定尺寸分割以及目录批量处理，同时给出 JPEG 输出示例。
 
 ## 测试图片
 

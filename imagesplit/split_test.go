@@ -209,3 +209,114 @@ func TestOutputDirectoryCreated(t *testing.T) {
         t.Fatalf("expected output directory to be created: %v", err)
     }
 }
+
+func TestSplitDirectoryGridMode(t *testing.T) {
+    inputDir := t.TempDir()
+    if err := testdata.WriteGradientPNG(filepath.Join(inputDir, "gradient.png")); err != nil {
+        t.Fatalf("write gradient png: %v", err)
+    }
+    if err := testdata.WriteBlocksJPEG(filepath.Join(inputDir, "blocks.jpg")); err != nil {
+        t.Fatalf("write blocks jpeg: %v", err)
+    }
+    if err := os.WriteFile(filepath.Join(inputDir, "ignore.txt"), []byte("not an image"), 0o644); err != nil {
+        t.Fatalf("write ignore file: %v", err)
+    }
+
+    outDir := t.TempDir()
+
+    results, err := SplitDirectory(inputDir, outDir, DirectorySplitConfig{
+        Mode: DirectorySplitModeGrid,
+        Rows: 2,
+        Cols: 2,
+    })
+    if err != nil {
+        t.Fatalf("SplitDirectory returned error: %v", err)
+    }
+    if len(results) != 2 {
+        t.Fatalf("expected 2 processed images, got %d", len(results))
+    }
+
+    for inputPath, files := range results {
+        if len(files) != 4 {
+            t.Fatalf("expected 4 tiles for %s, got %d", inputPath, len(files))
+        }
+        base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+        imageDir := filepath.Join(outDir, base)
+        if stat, err := os.Stat(imageDir); err != nil || !stat.IsDir() {
+            t.Fatalf("expected directory %s to exist", imageDir)
+        }
+        for _, file := range files {
+            if filepath.Dir(file) != imageDir {
+                t.Fatalf("expected file %s to be inside %s", file, imageDir)
+            }
+        }
+    }
+}
+
+func TestSplitDirectoryTileMode(t *testing.T) {
+    inputDir := t.TempDir()
+    if err := testdata.WriteGradientPNG(filepath.Join(inputDir, "gradient.png")); err != nil {
+        t.Fatalf("write gradient png: %v", err)
+    }
+
+    outDir := t.TempDir()
+
+    results, err := SplitDirectory(inputDir, outDir, DirectorySplitConfig{
+        Mode:       DirectorySplitModeTile,
+        TileWidth:  4,
+        TileHeight: 3,
+        Options: SplitOptions{
+            Format: "jpeg",
+            Quality: 80,
+        },
+    })
+    if err != nil {
+        t.Fatalf("SplitDirectory returned error: %v", err)
+    }
+    if len(results) != 1 {
+        t.Fatalf("expected 1 processed image, got %d", len(results))
+    }
+    for _, files := range results {
+        for _, file := range files {
+            if filepath.Ext(file) != ".jpg" {
+                t.Fatalf("expected jpg output when forcing jpeg format, got %s", filepath.Ext(file))
+            }
+        }
+    }
+}
+
+func TestSplitDirectoryHandlesDuplicateNames(t *testing.T) {
+    inputDir := t.TempDir()
+    if err := testdata.WriteGradientPNG(filepath.Join(inputDir, "photo.png")); err != nil {
+        t.Fatalf("write gradient png: %v", err)
+    }
+    if err := testdata.WriteBlocksJPEG(filepath.Join(inputDir, "photo.jpg")); err != nil {
+        t.Fatalf("write blocks jpeg: %v", err)
+    }
+
+    outDir := t.TempDir()
+
+    results, err := SplitDirectory(inputDir, outDir, DirectorySplitConfig{
+        Mode: DirectorySplitModeGrid,
+        Rows: 2,
+        Cols: 2,
+    })
+    if err != nil {
+        t.Fatalf("SplitDirectory returned error: %v", err)
+    }
+    if len(results) != 2 {
+        t.Fatalf("expected 2 processed images, got %d", len(results))
+    }
+
+    dirs := make(map[string]struct{})
+    for _, files := range results {
+        if len(files) == 0 {
+            t.Fatalf("expected at least one output file per image")
+        }
+        dir := filepath.Base(filepath.Dir(files[0]))
+        dirs[dir] = struct{}{}
+    }
+    if len(dirs) != 2 {
+        t.Fatalf("expected unique directories per image, got %v", dirs)
+    }
+}
